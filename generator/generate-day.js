@@ -73,8 +73,6 @@ function getDays(root) {
  * AUTHORITATIVE TOPIC EXTRACTION
  * ------------------------------------------------------
  *
- * IMPORTANT:
- *
  * Only day.topics are lesson section topics.
  *
  * day.chapter     = context/title
@@ -83,6 +81,12 @@ function getDays(root) {
  * day.neetFocus   = exam priorities
  *
  * NEVER add chapter or subtopics to this list.
+ *
+ * IMPORTANT:
+ * Repeated syllabus topics are allowed.
+ * The syllabus itself is never modified.
+ * Duplicate topic names are deduplicated internally
+ * for lesson and MCQ generation.
  */
 function getTopics(day) {
   if (!Array.isArray(day?.topics)) {
@@ -92,6 +96,7 @@ function getTopics(day) {
   }
 
   const topics = [];
+  const seenTopics = new Set();
 
   for (const item of day.topics) {
     let topic = null;
@@ -118,12 +123,22 @@ function getTopics(day) {
       );
     }
 
-    if (topics.includes(topic)) {
-      fail(
-        `Day ${day.day} contains a duplicate syllabus topic: "${topic}"`
+    /*
+     * Skip duplicate topics internally.
+     *
+     * Do not change syllabus.json.
+     * Do not rename English topics.
+     * Generate the repeated topic only once.
+     */
+    if (seenTopics.has(topic)) {
+      console.warn(
+        `Duplicate syllabus topic skipped internally: "${topic}"`
       );
+
+      continue;
     }
 
+    seenTopics.add(topic);
     topics.push(topic);
   }
 
@@ -141,14 +156,6 @@ function getTopics(day) {
  * ------------------------------------------------------
  * NORMALIZE AI-GENERATED LESSON
  * ------------------------------------------------------
- *
- * Groq may occasionally return a valid JSON object
- * with learningOutcome in the wrong shape.
- *
- * The validator remains strict.
- *
- * This function converts safe equivalent shapes into
- * the required canonical format before validation.
  */
 function normalizeGeneratedLesson(
   lesson,
@@ -164,16 +171,8 @@ function normalizeGeneratedLesson(
     );
   }
 
-
   /*
-   * learningOutcome
-   *
-   * Required final format:
-   *
-   * [
-   *   "string",
-   *   "string"
-   * ]
+   * Normalize learningOutcome.
    */
 
   if (
@@ -216,11 +215,6 @@ function normalizeGeneratedLesson(
     }
   }
 
-
-  /*
-   * If Groq returned null, undefined, or another
-   * unexpected type, convert it to an empty array.
-   */
   if (
     !Array.isArray(
       lesson.learningOutcome
@@ -229,47 +223,30 @@ function normalizeGeneratedLesson(
     lesson.learningOutcome = [];
   }
 
-
   /*
-   * Hindi learning outcome fallback.
-   *
-   * If Groq omits learningOutcome, use Hindi
-   * instead of generating an English sentence.
+   * Hindi fallback learningOutcome.
    */
   if (
     lesson.learningOutcome.length === 0
   ) {
     lesson.learningOutcome = [
-      "इस दिन के महत्वपूर्ण NEET सिद्धांतों, तथ्यों और अनुप्रयोगों को समझें।"
+      "इस पाठ में दिए गए NEET के महत्वपूर्ण सिद्धांतों, तथ्यों और अनुप्रयोगों को समझना।"
     ];
   }
 
-
-  /*
-   * Ensure every outcome is a clean string.
-   */
   lesson.learningOutcome =
     lesson.learningOutcome
       .map(item => String(item).trim())
       .filter(Boolean);
 
-
   /*
-   * ----------------------------------------------------
-   * NORMALIZE MCQ ANSWER INDEX
-   * ----------------------------------------------------
+   * Normalize MCQ answer index.
    *
-   * Canonical format:
-   *
-   * 0 = option A
-   * 1 = option B
-   * 2 = option C
-   * 3 = option D
-   *
-   * This is mainly a safety layer if a lesson response
-   * happens to contain MCQs despite the prompt.
+   * 0 = A
+   * 1 = B
+   * 2 = C
+   * 3 = D
    */
-
   if (Array.isArray(lesson.mcqs)) {
     lesson.mcqs =
       lesson.mcqs.map(mcq => {
@@ -323,7 +300,6 @@ function normalizeGeneratedLesson(
         return mcq;
       });
   }
-
 
   return lesson;
 }
@@ -427,13 +403,7 @@ function normalizeTopic(value) {
  * REMOVE DUPLICATE MCQs
  * ------------------------------------------------------
  *
- * IMPORTANT:
- *
- * Duplicate questions are checked within the SAME
- * topic only.
- *
- * The same question text appearing under different
- * topics must not cause one topic's MCQ to disappear.
+ * Duplicate questions are checked within the SAME topic.
  */
 function uniqueMcqs(mcqs) {
   const seen = new Set();
@@ -461,11 +431,6 @@ function uniqueMcqs(mcqs) {
  * ------------------------------------------------------
  * EXACT TOPIC MATCH
  * ------------------------------------------------------
- *
- * Do not use includes() or fuzzy matching.
- *
- * Every generated section must correspond exactly
- * to one authoritative syllabus topic.
  */
 function topicMatches(
   generatedTopic,
@@ -482,9 +447,6 @@ function topicMatches(
  * ------------------------------------------------------
  * COMPLETE LESSON VALIDATION
  * ------------------------------------------------------
- *
- * This additional check guarantees that every expected
- * topic exists exactly once and in the correct order.
  */
 function validateCompleteLesson(
   lesson,
@@ -541,12 +503,6 @@ function validateCompleteLesson(
  * ------------------------------------------------------
  * GENERATE COMPLETE LESSON
  * ------------------------------------------------------
- *
- * Keep generating the SAME lesson until it passes
- * strict validation.
- *
- * Groq rate-limit waiting/retry is handled inside
- * groq.js.
  */
 async function generateCompleteLesson(
   day,
@@ -607,8 +563,6 @@ async function generateCompleteLesson(
  * GENERATE COMPLETE TOPIC MCQs
  * ------------------------------------------------------
  *
- * One request is made for one authoritative topic.
- *
  * Required:
  *   minimum = 5
  *   maximum = 10
@@ -638,7 +592,6 @@ async function generateCompleteTopicMcqs(
           )
         );
 
-
       if (
         !Array.isArray(
           result?.mcqs
@@ -649,13 +602,11 @@ async function generateCompleteTopicMcqs(
         );
       }
 
-
       validateMcqs(
         result.mcqs,
         5,
         10
       );
-
 
       const mcqs =
         result.mcqs.map(mcq => ({
@@ -663,11 +614,9 @@ async function generateCompleteTopicMcqs(
           topic
         }));
 
-
       console.log(
         `  ✓ ${mcqs.length} valid MCQs collected`
       );
-
 
       return mcqs;
 
@@ -688,9 +637,6 @@ async function generateCompleteTopicMcqs(
  * ------------------------------------------------------
  * VALIDATE MCQ COUNT PER TOPIC
  * ------------------------------------------------------
- *
- * Every authoritative syllabus topic must have
- * between 5 and 10 MCQs.
  */
 function validateMcqCountPerTopic(
   mcqs,
@@ -744,13 +690,11 @@ async function main() {
     );
   }
 
-
   const lastDay =
     findLastGeneratedDay();
 
   const nextDay =
     lastDay + 1;
-
 
   console.log("");
   console.log("==============================================");
@@ -782,7 +726,6 @@ async function main() {
 
   console.log("==============================================");
 
-
   if (nextDay > totalDays) {
     console.log(
       "All 365 lessons are already generated."
@@ -790,11 +733,9 @@ async function main() {
     return;
   }
 
-
   fs.mkdirSync(DATA_DIR, {
     recursive: true
   });
-
 
   const outputFile =
     path.join(
@@ -802,13 +743,11 @@ async function main() {
       `day-${String(nextDay).padStart(3, "0")}.json`
     );
 
-
   if (fs.existsSync(outputFile)) {
     fail(
       `Safety stop: ${outputFile} already exists.`
     );
   }
-
 
   const day =
     days.find(
@@ -816,13 +755,11 @@ async function main() {
         Number(item.day) === nextDay
     );
 
-
   if (!day) {
     fail(
       `Day ${nextDay} was not found in syllabus.json.`
     );
   }
-
 
   const courseDate =
     calculateCourseDate(
@@ -830,25 +767,20 @@ async function main() {
       nextDay
     );
 
-
   const publishAt =
     createPublishAt(
       courseDate,
       config.publishTime
     );
 
-
   /*
-   * IMPORTANT:
-   *
    * ONLY day.topics are used.
    *
-   * chapter/subtopics/neetFocus are NOT added as
-   * separate lesson or MCQ topics.
+   * Repeated topics are skipped internally.
+   * syllabus.json is never modified.
    */
   const topics =
     getTopics(day);
-
 
   console.log("");
   console.log(
@@ -869,7 +801,6 @@ async function main() {
 
   console.log("");
 
-
   for (
     let i = 0;
     i < topics.length;
@@ -879,7 +810,6 @@ async function main() {
       `Topic ${i + 1}: ${topics[i]}`
     );
   }
-
 
   /*
    * ------------------------------------------------------
@@ -893,27 +823,21 @@ async function main() {
     "STEP 1 — Generating complete lesson..."
   );
 
-
   const lesson =
     await generateCompleteLesson(
       day,
       topics
     );
 
-
   console.log(
     `Lesson sections: ${lesson.sections.length}`
   );
-
 
   /*
    * ------------------------------------------------------
    * STEP 2
    * TOPIC-WISE MCQs
    * ------------------------------------------------------
-   *
-   * The next topic is NEVER started until the current
-   * topic has successfully produced 5-10 valid MCQs.
    */
 
   console.log("");
@@ -921,9 +845,7 @@ async function main() {
     "STEP 2 — Generating topic-wise NEET MCQs..."
   );
 
-
   const allMcqs = [];
-
 
   for (
     let i = 0;
@@ -938,39 +860,35 @@ async function main() {
       `MCQ ${i + 1}/${topics.length}: ${topic}`
     );
 
-
     const topicMcqs =
       await generateCompleteTopicMcqs(
         day,
         topic
       );
 
-
     allMcqs.push(
       ...topicMcqs
     );
   }
 
-
   /*
-   * Remove exact duplicate questions within the
-   * SAME topic only.
+   * Remove exact duplicate questions within
+   * the SAME topic only.
    */
   const mcqs =
     uniqueMcqs(allMcqs);
-
 
   console.log("");
   console.log(
     `Valid MCQs collected: ${mcqs.length}`
   );
 
-
   /*
    * ------------------------------------------------------
    * FINAL PER-TOPIC MCQ COUNT
    * ------------------------------------------------------
    */
+
   try {
     validateMcqCountPerTopic(
       mcqs,
@@ -981,7 +899,6 @@ async function main() {
       `Final MCQ validation failed:\n${error.message}`
     );
   }
-
 
   /*
    * ------------------------------------------------------
@@ -1026,7 +943,6 @@ async function main() {
     }
   };
 
-
   /*
    * ------------------------------------------------------
    * FINAL SAFETY VALIDATION
@@ -1039,24 +955,20 @@ async function main() {
       topics
     );
 
-
     validateMcqs(
       generated.mcqs
     );
-
 
     validateMcqCountPerTopic(
       generated.mcqs,
       topics
     );
 
-
   } catch (error) {
     fail(
       `Final validation failed:\n${error.message}`
     );
   }
-
 
   /*
    * ------------------------------------------------------
@@ -1074,14 +986,10 @@ async function main() {
     "utf8"
   );
 
-
   /*
    * ------------------------------------------------------
    * READ THE ACTUAL WRITTEN FILE AGAIN
    * ------------------------------------------------------
-   *
-   * This validates the exact JSON file that the
-   * frontend will eventually read.
    */
 
   try {
@@ -1093,23 +1001,19 @@ async function main() {
         )
       );
 
-
     validateCompleteLesson(
       saved,
       topics
     );
 
-
     validateMcqs(
       saved.mcqs
     );
-
 
     validateMcqCountPerTopic(
       saved.mcqs,
       topics
     );
-
 
   } catch (error) {
     fs.rmSync(
@@ -1123,7 +1027,6 @@ async function main() {
       `Written file validation failed:\n${error.message}`
     );
   }
-
 
   /*
    * ------------------------------------------------------

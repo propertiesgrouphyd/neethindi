@@ -1,195 +1,135 @@
+
 export function buildLessonPrompt(day) {
   return `
-You are a senior NEET-UG preparation content author.
+You are an expert NEET Biology, Physics, and Chemistry teacher
+creating high-quality daily NEET preparation lessons.
 
-Create ONE high-quality study lesson ONLY for the supplied syllabus day.
+LANGUAGE REQUIREMENT:
+- ALL educational content MUST be written in Hindi.
+- Use proper Hindi Devanagari script (हिन्दी).
+- Do NOT write lesson explanations in English.
+- English scientific terminology may appear in parentheses when genuinely useful.
+- Scientific symbols, chemical formulas, equations, units, and standard abbreviations may remain in their original form.
+- Hindi must be natural, clear, grammatically correct, and suitable for Indian NEET aspirants.
 
-NEET STANDARD:
-- Follow the supplied syllabus exactly.
-- Cover EVERY topic and subtopic supplied.
-- Do not teach topics from other days.
-- Use scientifically accurate NCERT-aligned terminology.
-- Explain from fundamentals to NEET-exam level.
-- Prioritize concepts, mechanisms, formulas, definitions, relationships,
-  exceptions, diagrams-in-words where useful, and high-yield facts.
-- Do not invent facts.
-- Do not add unrelated information.
-- Avoid unnecessary verbosity.
-- Use short, information-dense paragraphs.
+IMPORTANT TOPIC RULE:
+- The "topic" field inside every section MUST remain EXACTLY
+  the English topic string supplied in the syllabus.
+- Do NOT translate, modify, shorten, or rename section.topic.
+- Section headings and educational content must be in Hindi.
 
-LESSON:
-For every supplied topic create a corresponding section.
+CONTENT REQUIREMENTS:
+1. Explain concepts accurately according to the NEET syllabus.
+2. Make the lesson detailed enough for serious NEET preparation.
+3. Include definitions, conceptual explanations, important facts,
+   examples, and relevant applications.
+4. Highlight NEET-important facts, exceptions, and common mistakes.
+5. Avoid unnecessary repetition.
+6. Do not invent syllabus topics.
+7. Create exactly one section for every supplied topic.
+8. Keep sections in the exact syllabus topic order.
+9. Write learning outcomes in Hindi.
+10. Do not include MCQs in the lesson JSON.
+11. Return valid JSON only.
+12. Do not return Markdown fences or additional commentary.
 
-Each section MUST contain:
-- topic
-- heading
-- content
-- keyPoints
-- neetTips
-
-The fields keyPoints and neetTips MUST always be JSON arrays
-of strings.
-
-LEARNING OUTCOME — VERY IMPORTANT:
-- learningOutcome MUST ALWAYS be a JSON array.
-- Every item inside learningOutcome MUST be a string.
-- Example:
-  "learningOutcome": [
-    "Understand the major concepts covered in this lesson.",
-    "Apply the concepts to NEET-level questions."
-  ]
-- NEVER return learningOutcome as a string.
-- NEVER return learningOutcome as an object.
-- NEVER return learningOutcome as null.
-- NEVER omit learningOutcome.
-
-MCQs:
-- Do NOT generate MCQs in this call.
-- MCQs are generated separately.
-
-LANGUAGE:
-- English only.
-
-OUTPUT:
-- Return ONLY valid JSON.
-- No markdown.
-- No code fences.
-- No explanatory text before or after the JSON.
-- Follow the JSON structure exactly.
-
-EXACT JSON STRUCTURE:
+EXPECTED JSON STRUCTURE:
 {
-  "title": "string",
-  "introduction": "string",
+  "title": "Hindi lesson title",
+  "introduction": "Hindi introduction",
   "sections": [
     {
-      "topic": "string",
-      "heading": "string",
-      "content": "string",
-      "keyPoints": ["string"],
-      "neetTips": ["string"]
+      "topic": "EXACT ENGLISH SYLLABUS TOPIC",
+      "heading": "Hindi heading",
+      "content": "Detailed Hindi explanation",
+      "keyPoints": [
+        "Hindi important point",
+        "Hindi important point"
+      ],
+      "neetTips": [
+        "Hindi NEET exam tip"
+      ]
     }
   ],
-  "learningOutcome": ["string"]
+  "learningOutcome": [
+    "Hindi learning outcome",
+    "Hindi learning outcome"
+  ]
 }
 
-FINAL CHECK:
-1. Valid JSON.
-2. sections contains exactly one section for each item in topics.
-3. Section order exactly matches topics order.
-4. Every section.topic exactly matches its supplied topic.
-5. Every supplied subtopic is covered.
-6. keyPoints and neetTips are arrays of strings.
-7. learningOutcome is a non-empty array of strings.
-8. No MCQs are included.
-9. All content follows the supplied syllabus only.
+SYLLABUS DATA FOR THIS DAY:
+${JSON.stringify(day, null, 2)}
 
-SYLLABUS:
-${JSON.stringify(day)}
+Generate the complete lesson now.
+
+Remember:
+- Hindi Devanagari for all educational content.
+- English topic identifiers must remain EXACTLY unchanged.
+- Include every syllabus topic.
+- Output valid JSON only.
 `;
 }
 
-
 export function buildMcqPrompt(day, topic) {
   return `
-You are an expert NEET-UG examination question setter.
+You are an expert NEET examination question setter.
 
-AUTHORITATIVE TOPIC:
-The exact topic for this request is:
-"${String(topic).trim()}"
+Create high-quality NEET-level MCQs for the specified syllabus topic.
 
-Create ORIGINAL NEET-level MCQs ONLY from this exact topic
-and its supplied syllabus context.
+LANGUAGE REQUIREMENT:
+- Write the question in Hindi using Devanagari script.
+- Write all textual answer options in Hindi using Devanagari script.
+- Write the explanation in clear Hindi using Devanagari script.
+- English scientific terms may appear in parentheses where necessary.
+- Chemical formulas, equations, scientific symbols, units,
+  and standard abbreviations may remain unchanged.
+- Do not write explanations in English.
 
-ADAPTIVE MCQ COUNT:
-First assess the conceptual breadth of the authoritative topic
-using the supplied day, chapter, subtopics and NEET-focused context.
+MCQ REQUIREMENTS:
+1. Questions must strictly belong to the specified syllabus topic.
+2. Questions must be scientifically accurate.
+3. Questions must match NEET examination standards.
+4. Include conceptual and factual questions where appropriate.
+5. Avoid ambiguous questions.
+6. Exactly one option must be correct.
+7. Provide four options.
+8. The correct answer must be represented by its option index:
+   0 = first option
+   1 = second option
+   2 = third option
+   3 = fourth option
+9. Explanation must explain why the correct answer is correct.
+10. Explanation should be useful for NEET preparation.
+11. Avoid duplicate or repetitive questions.
+12. Do not include the topic field; the generator assigns it.
+13. Return valid JSON only.
+14. Do not return Markdown fences or additional commentary.
 
-Choose the number of MCQs intelligently:
-- 5 MCQs for a narrow topic.
-- 6 to 7 MCQs for a moderately broad topic.
-- 8 to 9 MCQs for a broad topic.
-- 10 MCQs for a very broad topic.
-
-STRICT COUNT:
-- Minimum: 5 MCQs.
-- Maximum: 10 MCQs.
-- Never generate fewer than 5.
-- Never generate more than 10.
-- Do not add repetitive questions just to reach a higher count.
-- Generate more questions only when the topic contains enough
-  distinct NEET-relevant concepts worth testing.
-
-IMPORTANT TOPIC BOUNDARY:
-- The authoritative topic is the exact topic string above.
-- Do not generate questions for another topic.
-- Do not silently replace, broaden, merge or rename the topic.
-- Use the supplied day only as context for understanding this topic.
-- Use relevant supplied subtopics when they belong to this topic.
-- For an integrated revision topic, questions may test the supplied
-  integrated revision material, comparisons, examples and subtopics,
-  but must remain within this topic's scope.
-
-QUESTION QUALITY:
-- Match the conceptual difficulty of the NEET-UG public examination.
-- Test understanding, application, interpretation, calculation,
-  mechanism, comparison or precise factual knowledge where appropriate.
-- Cover different meaningful concepts within the topic.
-- Avoid trivial questions.
-- Avoid Olympiad/JEE-Advanced level questions.
-- Avoid ambiguous wording.
-- Exactly ONE option must be correct.
-- All four options must be plausible.
-- Do not reveal the answer in the wording.
-- Do not repeat the same concept unnecessarily.
-- Use NCERT-aligned terminology.
-- Check every answer carefully before returning it.
-
-OUTPUT:
-- Return ONLY valid JSON.
-- No markdown.
-- No code fences.
-- No explanatory text before or after the JSON.
-
-EXACT JSON STRUCTURE:
+EXPECTED JSON STRUCTURE:
 {
-  "mcqs": [
-    {
-      "question": "string",
-      "options": ["string", "string", "string", "string"],
-      "answer": 0,
-      "explanation": "string"
-    }
-  ]
+  "question": "हिन्दी में प्रश्न",
+  "options": [
+    "पहला विकल्प",
+    "दूसरा विकल्प",
+    "तीसरा विकल्प",
+    "चौथा विकल्प"
+  ],
+  "answer": 0,
+  "explanation": "हिन्दी में विस्तृत व्याख्या"
 }
 
-MCQ RULES:
-- mcqs MUST be an array containing 5 to 10 items.
-- Every MCQ must have exactly 4 unique non-empty option strings.
-- answer MUST be the zero-based integer 0, 1, 2 or 3.
-- Exactly one option must be correct.
-- explanation MUST be a non-empty string.
-- Every question must belong only to the authoritative topic.
-- Questions must be meaningfully different from each other.
-- Do not create duplicate or near-duplicate questions.
+DAY INFORMATION:
+${JSON.stringify(day, null, 2)}
 
-FINAL CHECK:
-1. Valid JSON.
-2. mcqs is an array.
-3. mcqs contains at least 5 and at most 10 items.
-4. Every MCQ has exactly 4 options.
-5. Every option is non-empty and unique.
-6. answer is 0, 1, 2 or 3.
-7. Exactly one option is correct.
-8. Every explanation is non-empty.
-9. Every question belongs only to the authoritative topic.
-10. No repetitive questions.
-11. The number of questions reflects the conceptual breadth of the topic.
-
-DAY:
-${JSON.stringify(day)}
-
-TOPIC:
+EXACT SYLLABUS TOPIC:
 ${JSON.stringify(topic)}
+
+Generate one high-quality MCQ now.
+
+Remember:
+- Question and explanation must be Hindi Devanagari.
+- All textual options must be Hindi.
+- Maintain scientific accuracy.
+- Output valid JSON only.
 `;
 }

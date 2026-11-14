@@ -1,3 +1,4 @@
+
 import fs from "node:fs";
 import path from "node:path";
 
@@ -230,23 +231,16 @@ function normalizeGeneratedLesson(
 
 
   /*
-   * Last-resort safe fallback.
+   * Hindi learning outcome fallback.
    *
-   * This prevents an otherwise valid lesson from
-   * failing only because Groq omitted learningOutcome.
+   * If Groq omits learningOutcome, use Hindi
+   * instead of generating an English sentence.
    */
   if (
     lesson.learningOutcome.length === 0
   ) {
-    const chapter =
-      String(
-        syllabusDay?.chapter ||
-        syllabusDay?.title ||
-        "today's NEET topic"
-      ).trim();
-
     lesson.learningOutcome = [
-      `Understand the important NEET concepts, facts, and applications covered in ${chapter}.`
+      "इस दिन के महत्वपूर्ण NEET सिद्धांतों, तथ्यों और अनुप्रयोगों को समझें।"
     ];
   }
 

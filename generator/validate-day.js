@@ -1,25 +1,141 @@
+
+/*
+ * ------------------------------------------------------
+ * VIDHWAAN NEET — DAILY CONTENT VALIDATOR
+ * Hindi / Devanagari validation
+ * ------------------------------------------------------
+ *
+ * IMPORTANT:
+ *
+ * - Syllabus topics remain English.
+ * - Lesson content must contain Hindi.
+ * - MCQ questions and explanations must contain Hindi.
+ * - Scientific formulas and symbols are permitted.
+ * ------------------------------------------------------
+ */
+
+
+/*
+ * ------------------------------------------------------
+ * HINDI SCRIPT DETECTION
+ * ------------------------------------------------------
+ */
+
+function containsHindi(value) {
+  return (
+    typeof value === "string" &&
+    /[\u0900-\u097F]/.test(value)
+  );
+}
+
+
+function requireHindi(
+  value,
+  label
+) {
+  if (
+    typeof value !== "string" ||
+    !value.trim()
+  ) {
+    throw new Error(
+      `${label}: missing content.`
+    );
+  }
+
+  if (!containsHindi(value)) {
+    throw new Error(
+      `${label}: Hindi Devanagari content is missing.`
+    );
+  }
+}
+
+
+/*
+ * ------------------------------------------------------
+ * VALIDATE HINDI STRING ARRAY
+ * ------------------------------------------------------
+ */
+
+function validateHindiArray(
+  values,
+  label,
+  minimum = 1
+) {
+  if (!Array.isArray(values)) {
+    throw new Error(
+      `${label} must be an array.`
+    );
+  }
+
+  if (values.length < minimum) {
+    throw new Error(
+      `${label} must contain at least ${minimum} items.`
+    );
+  }
+
+  for (
+    const [index, value]
+    of values.entries()
+  ) {
+    requireHindi(
+      value,
+      `${label} item ${index + 1}`
+    );
+  }
+}
+
+
+/*
+ * ------------------------------------------------------
+ * VALIDATE DAILY LESSON
+ * ------------------------------------------------------
+ */
+
 export function validateDayContent(
   data,
   expectedDay,
   expectedTopics
 ) {
-  if (!data || typeof data !== "object") {
+  if (
+    !data ||
+    typeof data !== "object" ||
+    Array.isArray(data)
+  ) {
     throw new Error(
       "Generated lesson is not an object."
     );
   }
 
-  if (!data.title?.trim()) {
-    throw new Error(
-      "Missing lesson title."
-    );
-  }
 
-  if (!data.introduction?.trim()) {
-    throw new Error(
-      "Missing lesson introduction."
-    );
-  }
+  /*
+   * ----------------------------------------------------
+   * TITLE
+   * ----------------------------------------------------
+   */
+
+  requireHindi(
+    data.title,
+    "Lesson title"
+  );
+
+
+  /*
+   * ----------------------------------------------------
+   * INTRODUCTION
+   * ----------------------------------------------------
+   */
+
+  requireHindi(
+    data.introduction,
+    "Lesson introduction"
+  );
+
+
+  /*
+   * ----------------------------------------------------
+   * SECTIONS
+   * ----------------------------------------------------
+   */
 
   if (
     !Array.isArray(data.sections) ||
@@ -30,61 +146,108 @@ export function validateDayContent(
     );
   }
 
-  if (
-    !Array.isArray(data.learningOutcome)
-  ) {
-    throw new Error(
-      "learningOutcome must be an array."
-    );
-  }
+
+  /*
+   * ----------------------------------------------------
+   * LEARNING OUTCOME
+   * ----------------------------------------------------
+   */
+
+  validateHindiArray(
+    data.learningOutcome,
+    "learningOutcome",
+    1
+  );
+
+
+  /*
+   * ----------------------------------------------------
+   * VALIDATE EVERY SECTION
+   * ----------------------------------------------------
+   */
 
   for (
     const [index, section]
     of data.sections.entries()
   ) {
-    if (!section.topic?.trim()) {
+    const sectionNumber =
+      index + 1;
+
+
+    /*
+     * topic:
+     *
+     * IMPORTANT:
+     * This field must remain English and match
+     * the syllabus topic exactly.
+     *
+     * Do NOT require Hindi in this field.
+     */
+
+    if (
+      typeof section.topic !== "string" ||
+      !section.topic.trim()
+    ) {
       throw new Error(
-        `Section ${index + 1}: missing topic.`
+        `Section ${sectionNumber}: missing topic.`
       );
     }
 
-    if (!section.heading?.trim()) {
-      throw new Error(
-        `Section ${index + 1}: missing heading.`
-      );
-    }
 
-    if (!section.content?.trim()) {
-      throw new Error(
-        `Section ${index + 1}: missing content.`
-      );
-    }
+    /*
+     * heading
+     */
 
-    if (!Array.isArray(section.keyPoints)) {
-      throw new Error(
-        `Section ${index + 1}: keyPoints must be an array.`
-      );
-    }
+    requireHindi(
+      section.heading,
+      `Section ${sectionNumber} heading`
+    );
 
-    if (!Array.isArray(section.neetTips)) {
-      throw new Error(
-        `Section ${index + 1}: neetTips must be an array.`
-      );
-    }
+
+    /*
+     * content
+     */
+
+    requireHindi(
+      section.content,
+      `Section ${sectionNumber} content`
+    );
+
+
+    /*
+     * keyPoints
+     */
+
+    validateHindiArray(
+      section.keyPoints,
+      `Section ${sectionNumber} keyPoints`,
+      1
+    );
+
+
+    /*
+     * neetTips
+     */
+
+    validateHindiArray(
+      section.neetTips,
+      `Section ${sectionNumber} neetTips`,
+      1
+    );
   }
 
 
   /*
-   * ------------------------------------------------------
+   * ----------------------------------------------------
    * EXPECTED TOPIC CHECK
-   * ------------------------------------------------------
+   * ----------------------------------------------------
    *
-   * The generator performs the final authoritative
-   * exact topic/order validation.
+   * Syllabus topic identifiers are English.
    *
-   * This warning remains here as an additional diagnostic
-   * check for direct use of this validator.
+   * Exact topic and order validation is performed
+   * separately by generate-day.js.
    */
+
   if (
     Array.isArray(expectedTopics) &&
     expectedTopics.length > 0
@@ -98,18 +261,19 @@ export function validateDayContent(
             .toLowerCase()
       );
 
+
     for (const topic of expectedTopics) {
       const name =
         String(topic)
           .trim()
           .replace(/\s+/g, " ")
-          .toLowerCase();
+            .toLowerCase();
 
       if (
         !generatedTopics.includes(name)
       ) {
-        console.warn(
-          `Warning: syllabus topic may not have a matching section: ${topic}`
+        throw new Error(
+          `Syllabus topic has no matching section: ${topic}`
         );
       }
     }
@@ -119,6 +283,12 @@ export function validateDayContent(
   return true;
 }
 
+
+/*
+ * ------------------------------------------------------
+ * VALIDATE MCQs
+ * ------------------------------------------------------
+ */
 
 export function validateMcqs(
   mcqs,
@@ -132,6 +302,12 @@ export function validateMcqs(
   }
 
 
+  /*
+   * ----------------------------------------------------
+   * MCQ COUNT
+   * ----------------------------------------------------
+   */
+
   if (
     mcqs.length < minCount ||
     mcqs.length > maxCount
@@ -142,15 +318,30 @@ export function validateMcqs(
   }
 
 
+  /*
+   * ----------------------------------------------------
+   * VALIDATE EACH MCQ
+   * ----------------------------------------------------
+   */
+
   for (
     const [index, mcq]
     of mcqs.entries()
   ) {
-    if (!mcq.question?.trim()) {
-      throw new Error(
-        `MCQ ${index + 1}: missing question.`
-      );
-    }
+    const mcqNumber =
+      index + 1;
+
+
+    /*
+     * QUESTION
+     *
+     * Must contain Hindi Devanagari.
+     */
+
+    requireHindi(
+      mcq.question,
+      `MCQ ${mcqNumber} question`
+    );
 
 
     /*
@@ -158,12 +349,13 @@ export function validateMcqs(
      * EXACTLY FOUR OPTIONS
      * ----------------------------------------------------
      */
+
     if (
       !Array.isArray(mcq.options) ||
       mcq.options.length !== 4
     ) {
       throw new Error(
-        `MCQ ${index + 1}: must have exactly 4 options.`
+        `MCQ ${mcqNumber}: must have exactly 4 options.`
       );
     }
 
@@ -173,6 +365,7 @@ export function validateMcqs(
      * OPTION CONTENT
      * ----------------------------------------------------
      */
+
     if (
       mcq.options.some(
         option =>
@@ -181,7 +374,7 @@ export function validateMcqs(
       )
     ) {
       throw new Error(
-        `MCQ ${index + 1}: empty option.`
+        `MCQ ${mcqNumber}: empty option.`
       );
     }
 
@@ -190,12 +383,8 @@ export function validateMcqs(
      * ----------------------------------------------------
      * OPTION UNIQUENESS
      * ----------------------------------------------------
-     *
-     * Every MCQ must have four different options.
-     *
-     * Comparison is case-insensitive and ignores
-     * surrounding whitespace.
      */
+
     const normalizedOptions =
       mcq.options.map(
         option =>
@@ -209,7 +398,7 @@ export function validateMcqs(
       new Set(normalizedOptions).size !== 4
     ) {
       throw new Error(
-        `MCQ ${index + 1}: options must be unique.`
+        `MCQ ${mcqNumber}: options must be unique.`
       );
     }
 
@@ -224,13 +413,14 @@ export function validateMcqs(
      * 2 = option C
      * 3 = option D
      */
+
     if (
       !Number.isInteger(mcq.answer) ||
       mcq.answer < 0 ||
       mcq.answer > 3
     ) {
       throw new Error(
-        `MCQ ${index + 1}: invalid answer index.`
+        `MCQ ${mcqNumber}: invalid answer index.`
       );
     }
 
@@ -238,13 +428,15 @@ export function validateMcqs(
     /*
      * ----------------------------------------------------
      * EXPLANATION
+     *
+     * Must contain Hindi Devanagari.
      * ----------------------------------------------------
      */
-    if (!mcq.explanation?.trim()) {
-      throw new Error(
-        `MCQ ${index + 1}: missing explanation.`
-      );
-    }
+
+    requireHindi(
+      mcq.explanation,
+      `MCQ ${mcqNumber} explanation`
+    );
   }
 
 

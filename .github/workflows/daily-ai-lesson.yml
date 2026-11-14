@@ -1,3 +1,4 @@
+
 name: VIDHWAAN NEET — Daily AI Lesson
 
 on:
@@ -87,7 +88,7 @@ jobs:
           set -euo pipefail
 
           echo "============================================================"
-          echo " VIDHWAAN NEET — DAILY AI GENERATION"
+          echo " VIDHWAAN NEET — HINDI DAILY AI GENERATION"
           echo "============================================================"
 
           node generator/generate-day.js
@@ -98,10 +99,6 @@ jobs:
       - name: Verify generated lesson
         run: |
           set -euo pipefail
-
-          echo "============================================================"
-          echo " VIDHWAAN NEET — GENERATED LESSON VERIFICATION"
-          echo "============================================================"
 
           mkdir -p public/data
 
@@ -126,6 +123,19 @@ jobs:
               raise SystemExit(
                   "ERROR: No lesson files exist after generation."
               )
+
+          hindi_pattern = re.compile(r"[\u0900-\u097F]")
+
+          def require_hindi(value, label):
+              if not isinstance(value, str) or not value.strip():
+                  raise SystemExit(
+                      f"ERROR: {label}: missing content."
+                  )
+
+              if not hindi_pattern.search(value):
+                  raise SystemExit(
+                      f"ERROR: {label}: Hindi Devanagari missing."
+                  )
 
           expected = 1
 
@@ -169,25 +179,110 @@ jobs:
                       f"ERROR: {f}: missing publishAt."
                   )
 
-              if not isinstance(content.get("sections"), list):
+              require_hindi(
+                  content.get("title"),
+                  f"{f.name}: title"
+              )
+
+              require_hindi(
+                  content.get("introduction"),
+                  f"{f.name}: introduction"
+              )
+
+              sections = content.get("sections")
+
+              if not isinstance(sections, list) or not sections:
                   raise SystemExit(
-                      f"ERROR: {f}: sections must be an array."
+                      f"ERROR: {f}: sections must be a non-empty array."
                   )
 
-              if not isinstance(content.get("mcqs"), list):
+              outcomes = content.get("learningOutcome")
+
+              if not isinstance(outcomes, list) or not outcomes:
                   raise SystemExit(
-                      f"ERROR: {f}: mcqs must be an array."
+                      f"ERROR: {f}: learningOutcome must be a non-empty array."
                   )
 
-              if len(content["sections"]) == 0:
-                  raise SystemExit(
-                      f"ERROR: {f}: lesson contains no sections."
+              for i, outcome in enumerate(outcomes, 1):
+                  require_hindi(
+                      outcome,
+                      f"{f.name}: learningOutcome {i}"
                   )
 
-              if len(content["mcqs"]) == 0:
-                  raise SystemExit(
-                      f"ERROR: {f}: lesson contains no MCQs."
+              for i, section in enumerate(sections, 1):
+                  if not isinstance(section.get("topic"), str):
+                      raise SystemExit(
+                          f"ERROR: {f.name}: section {i} topic missing."
+                      )
+
+                  require_hindi(
+                      section.get("heading"),
+                      f"{f.name}: section {i} heading"
                   )
+
+                  require_hindi(
+                      section.get("content"),
+                      f"{f.name}: section {i} content"
+                  )
+
+                  for field in ("keyPoints", "neetTips"):
+                      values = section.get(field)
+
+                      if not isinstance(values, list) or not values:
+                          raise SystemExit(
+                              f"ERROR: {f.name}: section {i} {field} missing."
+                          )
+
+                      for j, value in enumerate(values, 1):
+                          require_hindi(
+                              value,
+                              f"{f.name}: section {i} {field} {j}"
+                          )
+
+              mcqs = content.get("mcqs")
+
+              if not isinstance(mcqs, list) or not mcqs:
+                  raise SystemExit(
+                      f"ERROR: {f}: mcqs must be a non-empty array."
+                  )
+
+              for i, mcq in enumerate(mcqs, 1):
+                  require_hindi(
+                      mcq.get("question"),
+                      f"{f.name}: MCQ {i} question"
+                  )
+
+                  require_hindi(
+                      mcq.get("explanation"),
+                      f"{f.name}: MCQ {i} explanation"
+                  )
+
+                  options = mcq.get("options")
+
+                  if not isinstance(options, list) or len(options) != 4:
+                      raise SystemExit(
+                          f"ERROR: {f.name}: MCQ {i} must have 4 options."
+                      )
+
+                  if any(
+                      not isinstance(option, str) or not option.strip()
+                      for option in options
+                  ):
+                      raise SystemExit(
+                          f"ERROR: {f.name}: MCQ {i} has an empty option."
+                      )
+
+                  answer = mcq.get("answer")
+
+                  if (
+                      not isinstance(answer, int)
+                      or isinstance(answer, bool)
+                      or answer < 0
+                      or answer > 3
+                  ):
+                      raise SystemExit(
+                          f"ERROR: {f.name}: MCQ {i} answer index invalid."
+                      )
 
               expected += 1
 
@@ -197,11 +292,12 @@ jobs:
           print(f"Latest lesson: {latest.name}")
           print("Sequence     : VALID")
           print("JSON         : VALID")
+          print("Hindi        : VALID")
           print("Content      : VALID")
           PY
 
       # ------------------------------------------------------
-      # VERIFY ONLY EXPECTED FILE CHANGED
+      # VERIFY GIT CHANGES
       # ------------------------------------------------------
       - name: Verify Git changes
         run: |
@@ -243,10 +339,10 @@ jobs:
           git config user.email \
             "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git commit -m "chore: generate daily NEET lesson"
+          git commit -m "chore: generate daily NEET Hindi lesson"
 
           git push origin HEAD:main
 
           echo "============================================================"
-          echo " DAILY LESSON COMMITTED SUCCESSFULLY"
+          echo " DAILY HINDI LESSON COMMITTED SUCCESSFULLY"
           echo "============================================================"

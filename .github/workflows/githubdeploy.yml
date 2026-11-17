@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      PROJECT_NAME: vidhwaan-neet
+      PROJECT_NAME: vidhwaan-neethindi
 
     steps:
 
